@@ -73,26 +73,37 @@ func TestIBEEncryptDecrypt(t *testing.T) {
 		t.Error("NewSigningNetwork failed")
 	}
 
-	// encrypt a message
-	// ====> RN MESSAGE NEEDS TO BE 16 CHARS FOR THE ENCODING TO WORK,
-	msg := []byte("msg be 16 chars!")
+	msg := []byte("The quick brown fox jumps over the lazy dog, and then some purple unicorns appear!")
 	id := []byte("{policy: True}")
 
-	// TODO: ENCRYPT A WRAPPING SYMMETRIC KEY INSTEAD OF THE MESSAGE
-	// Then same for decryption
+	// symmetric encrypt the message
+	key := [32]byte{}
+	random.Bytes(key[:], random.New())
 
-	ciphertext, err := sn.IBEEncrypt(msg, id)
+	encryptedMsg, err := SymmetricEncrypt(msg, key)
 	if err != nil {
 		t.Error(err)
 	}
 
-	ciphertextBytes, err := CiphertextToBytes(sn.Suite, ciphertext)
+	encryptedSymmetricKey, err := sn.IBEEncrypt(key[:], id)
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("cipherText:", base64.StdEncoding.EncodeToString(ciphertextBytes))
 
-	// todo: eval the policy on each signer.....
+	encryptedSymmetricKeyBytes, err := CiphertextToBytes(sn.Suite, encryptedSymmetricKey)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println("cipherText:", base64.StdEncoding.EncodeToString(encryptedSymmetricKeyBytes))
+	fmt.Println("encryptedMsg:", base64.StdEncoding.EncodeToString(encryptedMsg.Box))
+
+	// material required for decryption: key, encryptedMsg (box + nonce), id, encryptedSymmetricKeyBytes
+
+	// TODO: marshal Box from encryptedMsg
+
+	// #############################################
+
+	// TODO in prod: eval the policy on each signer.....
 
 	// but here we just blind sign on all signing network for now
 	sigBytes, err := sn.Sign(id)
@@ -106,13 +117,23 @@ func TestIBEEncryptDecrypt(t *testing.T) {
 	}
 	fmt.Println("Signature verified")
 
-	ciphertextUnmarshalled, err := BytesToCiphertext(sn.Suite, ciphertextBytes)
+	encryptedSymmetricKeyUnmarshalled, err := BytesToCiphertext(sn.Suite, encryptedSymmetricKeyBytes)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// decrypt the ciphertext
-	decryptedMsg, err := sn.IBEDecrypt(ciphertextUnmarshalled, id, sigBytes)
+	// decrypt the symmetric key
+	decryptedKey, err := sn.IBEDecrypt(encryptedSymmetricKeyUnmarshalled, id, sigBytes)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// convert decryptedKey to [32]byte
+	var decryptedKey32 [32]byte
+	copy(decryptedKey32[:], decryptedKey)
+
+	// decrypt the message
+	decryptedMsg, err := SymmetricDecrypt(encryptedMsg, decryptedKey32)
 	if err != nil {
 		t.Error(err)
 	}

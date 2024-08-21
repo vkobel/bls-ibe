@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	cipherVLen = 16
-	cipherWLen = 16
+	cipherVLen = 32
+	cipherWLen = 32
 )
 
 // CiphertextToBytes converts a ciphertext value to a set of bytes.
