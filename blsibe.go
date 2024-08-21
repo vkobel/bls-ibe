@@ -1,6 +1,7 @@
 package blsibe
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/drand/kyber"
@@ -10,6 +11,7 @@ import (
 	"github.com/drand/kyber/sign"
 	"github.com/drand/kyber/sign/bls"
 	"github.com/drand/kyber/util/random"
+	"golang.org/x/crypto/nacl/secretbox"
 )
 
 type SigningNetwork struct {
@@ -116,6 +118,43 @@ func (sn *SigningNetwork) IBEDecrypt(ciphertext *ibe.Ciphertext, id, signatureBy
 
 	// ciphertext is on G1
 	msg, err := ibe.DecryptCCAonG1(sn.Suite, sigPoint, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+type Box struct {
+	Nonce [24]byte
+	Box   []byte
+}
+
+func encrypt(clear []byte, key *[32]byte) (*Box, error) {
+	nonce := [24]byte{}
+	random.Bytes(nonce[:], random.New())
+
+	encrypted := secretbox.Seal(nil, clear, &nonce, key)
+	return &Box{Nonce: nonce, Box: encrypted}, nil
+}
+
+func decrypt(b *Box, key *[32]byte) ([]byte, error) {
+	decrypted, ok := secretbox.Open(nil, b.Box, &b.Nonce, key)
+	if !ok {
+		return nil, errors.New("decryption error")
+	}
+	return decrypted, nil
+}
+
+func SymmetricEncrypt(plaintext []byte, key [32]byte) (*Box, error) {
+	box, err := encrypt(plaintext, &key)
+	if err != nil {
+		return nil, err
+	}
+	return box, nil
+}
+
+func SymmetricDecrypt(box *Box, key [32]byte) ([]byte, error) {
+	msg, err := decrypt(box, &key)
 	if err != nil {
 		return nil, err
 	}

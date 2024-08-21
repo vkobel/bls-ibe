@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
+
+	"github.com/drand/kyber/util/random"
 )
 
 // write simple test for BLSKeyGen
@@ -116,4 +118,27 @@ func TestIBEEncryptDecrypt(t *testing.T) {
 	}
 
 	fmt.Printf("Decrypted message '%s'\n", string(decryptedMsg))
+}
+
+func TestSymmerticEncryptDecrypt(t *testing.T) {
+	plaintext := []byte("Hello, BLSIBE!")
+	key := [32]byte{}
+	random.Bytes(key[:], random.New())
+
+	ciphertext, err := SymmetricEncrypt(plaintext, key)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println("Ciphertext:", base64.StdEncoding.EncodeToString(ciphertext.Box))
+
+	// decrypt the ciphertext
+	msg, err := SymmetricDecrypt(ciphertext, key)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println("Decrypted plaintext:", string(msg))
+
+	if string(msg) != string(plaintext) {
+		t.Error("Decrypted message does not match the original message")
+	}
 }
